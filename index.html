@@ -5,33 +5,46 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FIFA Ligi</title>
 <style>
-:root{--bg:#0e1a14;--card:#16271e;--line:#26402f;--txt:#eef3ee;--mut:#8fa898;--acc:#f2c14e;--ok:#5dd28a;--bad:#ef6a5e}
+:root{--bg:#0b1511;--card:#12211a;--line:#1f3a2d;--txt:#eef3ee;--mut:#86a091;--acc:#f2c14e;--ok:#5dd28a;--bad:#ef6a5e}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 "Trebuchet MS",system-ui,sans-serif;padding:14px;max-width:760px;margin:auto}
-h1{font:800 26px Georgia,serif;margin:6px 0 14px;letter-spacing:.5px}
-h2{font:700 18px Georgia,serif;margin:22px 0 8px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
-input,select,button{font:inherit;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:#0b140f;color:var(--txt);width:100%;margin:4px 0}
-button{background:var(--acc);color:#1a1400;font-weight:700;border:0;cursor:pointer;width:auto;padding:9px 16px}
-button.sec{background:transparent;color:var(--mut);border:1px solid var(--line)}
-button.del{background:var(--bad);color:#fff;padding:4px 10px}
+body{margin:auto;background:var(--bg);color:var(--txt);font:15px/1.4 "Trebuchet MS",system-ui,sans-serif;padding:16px 14px 40px;max-width:640px}
+h1{font:800 28px Georgia,serif;margin:4px 0 16px;letter-spacing:.3px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.card>b{display:block;margin-bottom:6px;font:700 16px Georgia,serif}
+input,select,button{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0a120e;color:var(--txt);width:100%;margin:4px 0}
+input:focus,select:focus{outline:2px solid var(--acc);outline-offset:1px}
+button{background:var(--acc);color:#1a1400;font-weight:700;border:0;cursor:pointer;width:auto;padding:10px 18px}
+button:active{transform:scale(.97)}
+button.sec{background:transparent;color:var(--mut);border:1px solid var(--line);padding:6px 12px}
+button.del{background:transparent;color:var(--bad);border:1px solid var(--bad);padding:5px 10px;font-size:13px}
+button.del:hover{background:var(--bad);color:#fff}
 .row{display:flex;gap:8px;align-items:center}
-.tabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto}
-.tabs button{background:transparent;color:var(--mut);border:1px solid var(--line)}
-.tabs button.on{background:var(--acc);color:#1a1400}
+.tabs{display:flex;border-bottom:1px solid var(--line);margin:12px 0 14px;overflow-x:auto}
+.tabs button{background:transparent;color:var(--mut);border:0;border-bottom:3px solid transparent;border-radius:0;margin:0;padding:10px 14px;white-space:nowrap}
+.tabs button.on{color:var(--acc);border-bottom-color:var(--acc)}
 table{width:100%;border-collapse:collapse}
-th,td{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+th,td{padding:10px 4px;text-align:center;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
 th{color:var(--mut);font-weight:600;font-size:12px}
 td.n,th.n{text-align:left}
-td.p{font-weight:800;color:var(--acc)}
-tr.top td.n{color:var(--ok)}
-.m{display:grid;grid-template-columns:1fr 46px 12px 46px 1fr;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
-.m input{text-align:center;padding:6px;margin:0}
-.m .h{text-align:right}
-.m .act{grid-column:1/-1;text-align:right}
+td.n{font-weight:700}
+td.p{font:800 18px Georgia,serif;color:var(--acc)}
+tr.top{background:linear-gradient(90deg,rgba(242,193,78,.12),transparent)}
+.pos{font-size:16px}
+.m{display:grid;grid-template-columns:1fr 50px 12px 50px 1fr;gap:6px;align-items:center;padding:8px 0}
+.m input{text-align:center;padding:8px;margin:0;font-weight:700}
+.mc{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.mc:last-child{border-bottom:0}
+.mc .t{color:var(--mut)}
+.mc .t:first-child{text-align:right}
+.mc .t.w{color:var(--txt);font-weight:800}
+.sb{background:#050a07;color:var(--acc);font:800 21px "Courier New",monospace;padding:4px 14px;border-radius:8px;border:1px solid var(--line);letter-spacing:2px}
+.mc .meta{grid-column:1/-1;text-align:center;color:var(--mut);font-size:12px;margin-top:-4px}
+.pl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.pl:last-child{border-bottom:0}
 .mut{color:var(--mut);font-size:13px}
 .err{color:var(--bad);min-height:18px}
-.big{font:800 34px Georgia,serif;text-align:center}
+.big{font:800 40px Georgia,serif;text-align:center;margin:10px 0 4px}
 .hide{display:none}
 </style>
 </head>
@@ -87,6 +100,7 @@ tr.top td.n{color:var(--ok)}
       <button onclick="oyuncuEkle()">Ekle</button>
     </div>
     <div class="card"><b>Oyuncular</b><div id="plist"></div></div>
+    <div class="card"><b>Maçları yönet</b><div id="amac"></div></div>
   </div>
 </div>
 
@@ -152,7 +166,7 @@ function tablo(){
   const rows = Object.values(t).map(r => ({...r, av:r.ag-r.yg, pu:r.g*3+r.b}))
     .sort((x,y) => y.pu-x.pu || y.av-x.av || y.ag-x.ag);
   $('tab-tablo').innerHTML = rows.length ? '<table><tr><th>#</th><th class="n">Oyuncu</th><th>O</th><th>G</th><th>B</th><th>M</th><th>AV</th><th>P</th></tr>' +
-    rows.map((r,i) => `<tr class="${i==0&&r.o?'top':''}"><td>${i+1}</td><td class="n">${esc(nm(r.u))}</td><td>${r.o}</td><td>${r.g}</td><td>${r.b}</td><td>${r.m}</td><td>${r.av>0?'+':''}${r.av}</td><td class="p">${r.pu}</td></tr>`).join('') + '</table>'
+    rows.map((r,i) => `<tr class="${i==0&&r.o?'top':''}"><td class="pos">${r.o?(['🥇','🥈','🥉'][i]||i+1):i+1}</td><td class="n">${esc(nm(r.u))}</td><td>${r.o}</td><td>${r.g}</td><td>${r.b}</td><td>${r.m}</td><td>${r.av>0?'+':''}${r.av}</td><td class="p">${r.pu}</td></tr>`).join('') + '</table>'
     : '<p class="mut">Henüz oyuncu yok. Admin olarak Yönetim sekmesinden ekle.</p>';
 }
 
@@ -175,14 +189,17 @@ function maclar(){
   const f = $('filtre').value;
   const l = matches.filter(m => m.played && (f === '' || m.home === f || m.away === f))
     .sort((x,y) => (y.ts||0) - (x.ts||0));
-  $('maclist').innerHTML = l.length ? l.map(m => {
-    const d = m.ts ? new Date(m.ts).toLocaleDateString('tr-TR', {day:'numeric', month:'short'}) : '';
-    return `<div class="m">
-    <div class="h">${esc(nm(m.home))}</div>
-    <div style="grid-column:2/5;text-align:center;font:800 18px Georgia,serif">${m.hg} - ${m.ag}</div>
-    <div>${esc(nm(m.away))}</div>
-    <div class="act"><span class="mut">${d} · ${esc(m.by||'')}</span> ${isAdmin?`<button class="del" onclick="macSil('${m.id}')">Sil</button>`:''}</div>
-  </div>`}).join('') : '<p class="mut">Henüz maç girilmedi.</p>';
+  $('maclist').innerHTML = l.length ? l.map(m => matchCard(m, false)).join('') : '<p class="mut">Henüz maç girilmedi.</p>';
+}
+
+function matchCard(m, del){
+  const d = m.ts ? new Date(m.ts).toLocaleDateString('tr-TR', {day:'numeric', month:'short'}) : '';
+  return `<div class="mc">
+    <div class="t ${m.hg>m.ag?'w':''}">${esc(nm(m.home))}</div>
+    <div class="sb">${m.hg}-${m.ag}</div>
+    <div class="t ${m.ag>m.hg?'w':''}">${esc(nm(m.away))}</div>
+    <div class="meta">${d} · ${esc(m.by||'')}${del?` · <button class="del" onclick="macSil('${m.id}')">Sil</button>`:''}</div>
+  </div>`;
 }
 
 function macEkle(){
@@ -218,7 +235,8 @@ function h2h(){
 
 function admin(){
   if(!isAdmin) return;
-  $('plist').innerHTML = players.map(p => `<div class="row" style="justify-content:space-between;padding:5px 0">
+  $('amac').innerHTML = matches.filter(m => m.played).sort((x,y) => (y.ts||0)-(x.ts||0)).map(m => matchCard(m, true)).join('') || '<span class="mut">Maç yok</span>';
+  $('plist').innerHTML = players.map(p => `<div class="pl">
     <span>${esc(p.name)} <span class="mut">(${esc(p.username)})</span></span>
     <button class="del" onclick="sil('${p.username}')">Sil</button></div>`).join('') || '<span class="mut">Boş</span>';
 }
