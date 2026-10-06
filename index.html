@@ -110,7 +110,7 @@ const nm = u => (players.find(p => p.username === u) || {name: u}).name;
 function giris(){
   $('lerr').textContent = '';
   auth.signInWithEmailAndPassword($('u').value.trim().toLowerCase() + DOM, $('p').value)
-    .catch(() => $('lerr').textContent = 'Kullanıcı adı veya şifre yanlış.');
+    .catch(e => $('lerr').textContent = 'Giriş olmadı (' + e.code + ')');
 }
 
 let unsub = [];
