@@ -57,6 +57,17 @@ tr.top td.n{color:var(--ok)}
   <div id="tab-tablo" class="card"></div>
 
   <div id="tab-mac" class="hide">
+    <div class="card">
+      <b>Maç ekle</b>
+      <div class="m" style="border:0">
+        <select id="hm" style="margin:0"></select>
+        <input type="number" min="0" id="hg" placeholder="0">
+        <div class="mut">-</div>
+        <input type="number" min="0" id="ag" placeholder="0">
+        <select id="aw" style="margin:0"></select>
+      </div>
+      <button onclick="macEkle()">Maçı kaydet</button>
+    </div>
     <select id="filtre" onchange="maclar()"></select>
     <div class="card" id="maclist"></div>
   </div>
@@ -74,11 +85,6 @@ tr.top td.n{color:var(--ok)}
       <input id="np" placeholder="Şifre (en az 6 karakter)">
       <div class="err" id="aerr"></div>
       <button onclick="oyuncuEkle()">Ekle</button>
-    </div>
-    <div class="card">
-      <b>Fikstür</b>
-      <p class="mut">Herkes herkesle iki maç yapar (ev/deplasman). Yeni oyuncu eklersen tekrar bas, sadece eksik maçları ekler.</p>
-      <button onclick="fikstur()">Fikstürü oluştur / güncelle</button>
     </div>
     <div class="card"><b>Oyuncular</b><div id="plist"></div></div>
   </div>
@@ -155,29 +161,43 @@ function fill(){
   const keep = id => { const v = $(id).value; return v; };
   const f = keep('filtre'), a = keep('a'), b = keep('b');
   $('filtre').innerHTML = '<option value="">Tüm maçlar</option><option value="_todo">Oynanmamışlar</option>' + opts;
-  $('a').innerHTML = opts; $('b').innerHTML = opts;
+  const hm = $('hm').value, aw = $('aw').value;
+  $('hm').innerHTML = opts; $('aw').innerHTML = opts;
   $('filtre').value = f; if(a) $('a').value = a;
+  if(hm) $('hm').value = hm;
+  if(aw) $('aw').value = aw; else if(players[1]) $('aw').value = players[1].username;
+  $('a').innerHTML = opts; $('b').innerHTML = opts;
+  if(a) $('a').value = a;
   if(b) $('b').value = b; else if(players[1]) $('b').value = players[1].username;
 }
 
 function maclar(){
   const f = $('filtre').value;
-  let l = matches.filter(m => f === '' ? true : f === '_todo' ? !m.played : (m.home === f || m.away === f));
-  l.sort((x,y) => (x.played?1:0)-(y.played?1:0) || x.id.localeCompare(y.id));
-  $('maclist').innerHTML = l.length ? l.map(m => `<div class="m">
+  const l = matches.filter(m => m.played && (f === '' || m.home === f || m.away === f))
+    .sort((x,y) => (y.ts||0) - (x.ts||0));
+  $('maclist').innerHTML = l.length ? l.map(m => {
+    const d = m.ts ? new Date(m.ts).toLocaleDateString('tr-TR', {day:'numeric', month:'short'}) : '';
+    return `<div class="m">
     <div class="h">${esc(nm(m.home))}</div>
-    <input type="number" min="0" id="h_${m.id}" value="${m.played?m.hg:''}">
-    <div class="mut">-</div>
-    <input type="number" min="0" id="a_${m.id}" value="${m.played?m.ag:''}">
+    <div style="grid-column:2/5;text-align:center;font:800 18px Georgia,serif">${m.hg} - ${m.ag}</div>
     <div>${esc(nm(m.away))}</div>
-    <div class="act">${m.played?'<span class="mut">Girildi · '+esc(m.by||'')+'</span> ':''}<button onclick="kaydet('${m.id}')">Kaydet</button></div>
-  </div>`).join('') : '<p class="mut">Maç yok. Admin fikstürü oluşturmalı.</p>';
+    <div class="act"><span class="mut">${d} · ${esc(m.by||'')}</span> ${isAdmin?`<button class="del" onclick="macSil('${m.id}')">Sil</button>`:''}</div>
+  </div>`}).join('') : '<p class="mut">Henüz maç girilmedi.</p>';
 }
 
-function kaydet(id){
-  const h = parseInt($('h_'+id).value), a = parseInt($('a_'+id).value);
-  if(isNaN(h) || isNaN(a) || h < 0 || a < 0) return alert('İki skoru da gir.');
-  db.collection('matches').doc(id).update({hg:h, ag:a, played:true, by:$('me').textContent}).catch(e => alert('Kaydedilemedi: '+e.message));
+function macEkle(){
+  const home = $('hm').value, away = $('aw').value;
+  const hg = parseInt($('hg').value), ag = parseInt($('ag').value);
+  if(!home || !away) return alert('Önce admin oyuncu eklemeli.');
+  if(home === away) return alert('İki farklı oyuncu seç.');
+  if(isNaN(hg) || isNaN(ag) || hg < 0 || ag < 0) return alert('İki skoru da gir.');
+  db.collection('matches').add({home, away, hg, ag, played:true, by:$('me').textContent, ts:Date.now()})
+    .then(() => { $('hg').value = $('ag').value = ''; })
+    .catch(e => alert('Kaydedilemedi: ' + e.message));
+}
+
+function macSil(id){
+  if(confirm('Bu maç silinsin mi?')) db.collection('matches').doc(id).delete();
 }
 
 function h2h(){
@@ -215,19 +235,6 @@ async function oyuncuEkle(){
     await db.collection('players').doc(u).set({name, username:u});
     $('nn').value = $('nu').value = $('np').value = '';
   }catch(e){ $('aerr').textContent = 'Hata: ' + e.message; }
-}
-
-async function fikstur(){
-  const have = new Set(matches.map(m => m.id));
-  const batch = db.batch(); let c = 0;
-  players.forEach(a => players.forEach(b => {
-    if(a.username === b.username) return;
-    const id = a.username + '__' + b.username;
-    if(have.has(id)) return;
-    batch.set(db.collection('matches').doc(id), {home:a.username, away:b.username, played:false}); c++;
-  }));
-  if(!c) return alert('Eklenecek yeni maç yok.');
-  await batch.commit(); alert(c + ' maç eklendi.');
 }
 
 async function sil(u){
