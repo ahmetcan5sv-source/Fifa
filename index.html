@@ -45,6 +45,15 @@ tr.top{background:linear-gradient(90deg,rgba(242,193,78,.12),transparent)}
 .mut{color:var(--mut);font-size:13px}
 .err{color:var(--bad);min-height:18px}
 .big{font:800 40px Georgia,serif;text-align:center;margin:10px 0 4px}
+.f{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 1.5px;background:var(--line)}
+.f.G{background:var(--ok)}.f.M{background:var(--bad)}.f.B{background:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpi{background:#0a120e;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi small{color:var(--mut);display:block;font-size:12px}
+.kpi b{font:800 19px Georgia,serif;display:block;margin:2px 0}
+.kpi.wide{grid-column:1/-1}
+.bar{display:flex;height:10px;border-radius:6px;overflow:hidden;margin:8px 0;background:var(--line)}
+.bar .a{background:var(--ok)}.bar .d{background:var(--mut)}.bar .b{background:var(--acc)}
 .hide{display:none}
 </style>
 </head>
@@ -63,6 +72,7 @@ tr.top{background:linear-gradient(90deg,rgba(242,193,78,.12),transparent)}
   <div class="tabs" style="margin-top:10px">
     <button data-t="tab-tablo" class="on">Puan durumu</button>
     <button data-t="tab-mac">Maçlar</button>
+    <button data-t="tab-analiz">Analiz</button>
     <button data-t="tab-h2h">İkili skor</button>
     <button data-t="tab-admin" id="adminTab" class="hide">Yönetim</button>
   </div>
@@ -83,6 +93,11 @@ tr.top{background:linear-gradient(90deg,rgba(242,193,78,.12),transparent)}
     </div>
     <select id="filtre" onchange="maclar()"></select>
     <div class="card" id="maclist"></div>
+  </div>
+
+  <div id="tab-analiz" class="hide">
+    <div class="card"><b>Ligin rekorları</b><div class="grid" id="rec"></div></div>
+    <div class="card"><b>Oyuncu profili</b><select id="pa" onchange="analiz()"></select><div id="prof"></div></div>
   </div>
 
   <div id="tab-h2h" class="hide card">
@@ -150,10 +165,10 @@ auth.onAuthStateChanged(user => {
 
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-  ['tab-tablo','tab-mac','tab-h2h','tab-admin'].forEach(t => $(t).classList.toggle('hide', t !== b.dataset.t));
+  ['tab-tablo','tab-mac','tab-analiz','tab-h2h','tab-admin'].forEach(t => $(t).classList.toggle('hide', t !== b.dataset.t));
 });
 
-function render(){ tablo(); fill(); maclar(); h2h(); admin(); }
+function render(){ tablo(); fill(); maclar(); analiz(); h2h(); admin(); }
 
 function tablo(){
   const t = {};
@@ -165,8 +180,8 @@ function tablo(){
   });
   const rows = Object.values(t).map(r => ({...r, av:r.ag-r.yg, pu:r.g*3+r.b}))
     .sort((x,y) => y.pu-x.pu || y.av-x.av || y.ag-x.ag);
-  $('tab-tablo').innerHTML = rows.length ? '<table><tr><th>#</th><th class="n">Oyuncu</th><th>O</th><th>G</th><th>B</th><th>M</th><th>AV</th><th>P</th></tr>' +
-    rows.map((r,i) => `<tr class="${i==0&&r.o?'top':''}"><td class="pos">${r.o?(['🥇','🥈','🥉'][i]||i+1):i+1}</td><td class="n">${esc(nm(r.u))}</td><td>${r.o}</td><td>${r.g}</td><td>${r.b}</td><td>${r.m}</td><td>${r.av>0?'+':''}${r.av}</td><td class="p">${r.pu}</td></tr>`).join('') + '</table>'
+  $('tab-tablo').innerHTML = rows.length ? '<table><tr><th>#</th><th class="n">Oyuncu</th><th>O</th><th>G</th><th>B</th><th>M</th><th>AV</th><th>Form</th><th>P</th></tr>' +
+    rows.map((r,i) => `<tr class="${i==0&&r.o?'top':''}"><td class="pos">${r.o?(['🥇','🥈','🥉'][i]||i+1):i+1}</td><td class="n">${esc(nm(r.u))}</td><td>${r.o}</td><td>${r.g}</td><td>${r.b}</td><td>${r.m}</td><td>${r.av>0?'+':''}${r.av}</td><td>${form(r.u)}</td><td class="p">${r.pu}</td></tr>`).join('') + '</table>'
     : '<p class="mut">Henüz oyuncu yok. Admin olarak Yönetim sekmesinden ekle.</p>';
 }
 
@@ -180,6 +195,7 @@ function fill(){
   $('filtre').value = f; if(a) $('a').value = a;
   if(hm) $('hm').value = hm;
   if(aw) $('aw').value = aw; else if(players[1]) $('aw').value = players[1].username;
+  const pa = $('pa').value; $('pa').innerHTML = opts; if(pa) $('pa').value = pa;
   $('a').innerHTML = opts; $('b').innerHTML = opts;
   if(a) $('a').value = a;
   if(b) $('b').value = b; else if(players[1]) $('b').value = players[1].username;
@@ -190,6 +206,49 @@ function maclar(){
   const l = matches.filter(m => m.played && (f === '' || m.home === f || m.away === f))
     .sort((x,y) => (y.ts||0) - (x.ts||0));
   $('maclist').innerHTML = l.length ? l.map(m => matchCard(m, false)).join('') : '<p class="mut">Henüz maç girilmedi.</p>';
+}
+
+function pm(u){
+  return matches.filter(m => m.played && (m.home===u || m.away===u)).sort((x,y) => (x.ts||0)-(y.ts||0)).map(m => {
+    const h = m.home === u, gf = h ? m.hg : m.ag, ga = h ? m.ag : m.hg;
+    return {opp: h ? m.away : m.home, gf, ga, r: gf>ga ? 'G' : gf<ga ? 'M' : 'B'};
+  });
+}
+function form(u){ return pm(u).slice(-5).map(x => `<i class="f ${x.r}"></i>`).join('') || '<span class="mut">-</span>'; }
+function agg(){
+  return players.map(p => {
+    const l = pm(p.username); let g=0,b=0,m=0,gf=0,ga=0,ws=0,c=0;
+    l.forEach(x => { gf+=x.gf; ga+=x.ga; if(x.r==='G'){g++; c++; ws=Math.max(ws,c)} else {c=0; x.r==='B' ? b++ : m++} });
+    let cur=0; for(let i=l.length-1; i>=0 && l[i].r==='G'; i--) cur++;
+    return {u:p.username,l,o:l.length,g,b,m,gf,ga,ws,cur};
+  });
+}
+const kpi = (t,v,s,w) => `<div class="kpi ${w?'wide':''}"><small>${t}</small><b>${v}</b><small>${s||''}</small></div>`;
+function analiz(){
+  const all = agg(), A = all.filter(x => x.o), pl = matches.filter(m => m.played);
+  if(!A.length){ $('rec').innerHTML = '<p class="mut">Maç girildikçe rekorlar burada çıkar.</p>'; $('prof').innerHTML=''; return; }
+  const best = (f,asc) => A.slice().sort((x,y) => asc ? f(x)-f(y) : f(y)-f(x))[0];
+  const gk = best(x=>x.gf), sv = best(x=>x.ga/x.o,true), wp = best(x=>x.g/x.o), ws = best(x=>x.ws);
+  const bw = pl.slice().sort((x,y) => Math.abs(y.hg-y.ag)-Math.abs(x.hg-x.ag))[0];
+  const hs = pl.slice().sort((x,y) => (y.hg+y.ag)-(x.hg+x.ag))[0];
+  const sc = m => `${esc(nm(m.home))} ${m.hg}-${m.ag} ${esc(nm(m.away))}`;
+  $('rec').innerHTML =
+    kpi('Gol kralı', esc(nm(gk.u)), gk.gf+' gol') +
+    kpi('En az yiyen', esc(nm(sv.u)), (sv.ga/sv.o).toFixed(1)+' gol/maç') +
+    kpi('Kazanma oranı', esc(nm(wp.u)), '%'+Math.round(wp.g/wp.o*100)) +
+    kpi('En uzun seri', esc(nm(ws.u)), ws.ws+' galibiyet') +
+    kpi('En farklı skor', sc(bw), '', true) + kpi('En çok gollü maç', sc(hs), (hs.hg+hs.ag)+' gol', true);
+  const x = all.find(y => y.u === $('pa').value);
+  if(!x || !x.o){ $('prof').innerHTML = '<p class="mut">Bu oyuncu henüz maç yapmadı.</p>'; return; }
+  const r = {}; x.l.forEach(y => { const q = r[y.opp] = r[y.opp] || {w:0,l:0}; y.r==='G' ? q.w++ : y.r==='M' && q.l++; });
+  const ks = Object.entries(r), kurban = ks.sort((a,b) => (b[1].w-b[1].l)-(a[1].w-a[1].l))[0], bela = ks.sort((a,b) => (b[1].l-b[1].w)-(a[1].l-a[1].w))[0];
+  $('prof').innerHTML = `<div class="grid" style="margin-top:8px">` +
+    kpi('Maç', x.o, `${x.g}G ${x.b}B ${x.m}M`) + kpi('Kazanma', '%'+Math.round(x.g/x.o*100), 'puan/maç '+((x.g*3+x.b)/x.o).toFixed(2)) +
+    kpi('Attığı', (x.gf/x.o).toFixed(1), 'gol/maç') + kpi('Yediği', (x.ga/x.o).toFixed(1), 'gol/maç') +
+    kpi('En uzun seri', x.ws, 'galibiyet') + kpi('Güncel seri', x.cur, 'galibiyet') +
+    kpi('Son 5 maç', form(x.u), '', true) +
+    (kurban[1].w > kurban[1].l ? kpi('Favori kurbanı', esc(nm(kurban[0])), kurban[1].w+'-'+kurban[1].l+' önde', true) : '') +
+    (bela[1].l > bela[1].w ? kpi('Baş belası', esc(nm(bela[0])), bela[1].l+'-'+bela[1].w+' geride', true) : '') + `</div>`;
 }
 
 function matchCard(m, del){
@@ -227,10 +286,11 @@ function h2h(){
     n++; ga += sa; gb += sb;
     if(sa > sb) wa++; else if(sa < sb) wb++; else d++;
   });
-  $('h2hout').innerHTML = n ? `<div class="big">${wa} - ${wb}</div>
+  $('h2hout').innerHTML = n ? `<div class="big">${wa} - ${wb}</div><div class="bar"><span class="a" style="flex:${wa||.01}"></span><span class="d" style="flex:${d||.01}"></span><span class="b" style="flex:${wb||.01}"></span></div>
     <p style="text-align:center">${esc(nm(a))} <b>${wa}</b> kez yendi, ${esc(nm(b))} <b>${wb}</b> kez yendi, ${d} beraberlik.<br>
     <span class="mut">Toplam gol: ${ga} - ${gb} (${n} maç)</span></p>`
     : '<p class="mut">Bu ikili henüz maç oynamadı.</p>';
+  if(n) $('h2hout').innerHTML += matches.filter(m => m.played && ((m.home===a&&m.away===b)||(m.home===b&&m.away===a))).sort((x,y)=>(y.ts||0)-(x.ts||0)).map(m => matchCard(m,false)).join('');
 }
 
 function admin(){
