@@ -109,7 +109,8 @@ const nm = u => (players.find(p => p.username === u) || {name: u}).name;
 
 function giris(){
   $('lerr').textContent = '';
-  auth.signInWithEmailAndPassword($('u').value.trim().toLowerCase() + DOM, $('p').value)
+  const v = $('u').value.trim().toLowerCase().replace(/\s+/g, '');
+  auth.signInWithEmailAndPassword(v.includes('@') ? v : v + DOM, $('p').value)
     .catch(e => $('lerr').textContent = 'Giriş olmadı (' + e.code + ')');
 }
 
