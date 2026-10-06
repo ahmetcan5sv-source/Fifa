@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIFA Ligi</title>
+<style>
+:root{--bg:#0e1a14;--card:#16271e;--line:#26402f;--txt:#eef3ee;--mut:#8fa898;--acc:#f2c14e;--ok:#5dd28a;--bad:#ef6a5e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 "Trebuchet MS",system-ui,sans-serif;padding:14px;max-width:760px;margin:auto}
+h1{font:800 26px Georgia,serif;margin:6px 0 14px;letter-spacing:.5px}
+h2{font:700 18px Georgia,serif;margin:22px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+input,select,button{font:inherit;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:#0b140f;color:var(--txt);width:100%;margin:4px 0}
+button{background:var(--acc);color:#1a1400;font-weight:700;border:0;cursor:pointer;width:auto;padding:9px 16px}
+button.sec{background:transparent;color:var(--mut);border:1px solid var(--line)}
+button.del{background:var(--bad);color:#fff;padding:4px 10px}
+.row{display:flex;gap:8px;align-items:center}
+.tabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto}
+.tabs button{background:transparent;color:var(--mut);border:1px solid var(--line)}
+.tabs button.on{background:var(--acc);color:#1a1400}
+table{width:100%;border-collapse:collapse}
+th,td{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600;font-size:12px}
+td.n,th.n{text-align:left}
+td.p{font-weight:800;color:var(--acc)}
+tr.top td.n{color:var(--ok)}
+.m{display:grid;grid-template-columns:1fr 46px 12px 46px 1fr;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.m input{text-align:center;padding:6px;margin:0}
+.m .h{text-align:right}
+.m .act{grid-column:1/-1;text-align:right}
+.mut{color:var(--mut);font-size:13px}
+.err{color:var(--bad);min-height:18px}
+.big{font:800 34px Georgia,serif;text-align:center}
+.hide{display:none}
+</style>
+</head>
+<body>
+<h1>⚽ FIFA Ligi</h1>
+
+<div id="login" class="card hide">
+  <input id="u" placeholder="Kullanıcı adı" autocapitalize="none" autocomplete="username">
+  <input id="p" type="password" placeholder="Şifre" autocomplete="current-password">
+  <div class="err" id="lerr"></div>
+  <button onclick="giris()">Giriş yap</button>
+</div>
+
+<div id="app" class="hide">
+  <div class="row" style="justify-content:space-between"><span class="mut">Giriş: <b id="me"></b></span><button class="sec" onclick="auth.signOut()">Çıkış</button></div>
+  <div class="tabs" style="margin-top:10px">
+    <button data-t="tab-tablo" class="on">Puan durumu</button>
+    <button data-t="tab-mac">Maçlar</button>
+    <button data-t="tab-h2h">İkili skor</button>
+    <button data-t="tab-admin" id="adminTab" class="hide">Yönetim</button>
+  </div>
+
+  <div id="tab-tablo" class="card"></div>
+
+  <div id="tab-mac" class="hide">
+    <select id="filtre" onchange="maclar()"></select>
+    <div class="card" id="maclist"></div>
+  </div>
+
+  <div id="tab-h2h" class="hide card">
+    <div class="row"><select id="a" onchange="h2h()"></select><select id="b" onchange="h2h()"></select></div>
+    <div id="h2hout"></div>
+  </div>
+
+  <div id="tab-admin" class="hide">
+    <div class="card">
+      <b>Oyuncu ekle</b>
+      <input id="nn" placeholder="İsim (ör. Ahmet)">
+      <input id="nu" placeholder="Kullanıcı adı (ör. ahmet)" autocapitalize="none">
+      <input id="np" placeholder="Şifre (en az 6 karakter)">
+      <div class="err" id="aerr"></div>
+      <button onclick="oyuncuEkle()">Ekle</button>
+    </div>
+    <div class="card">
+      <b>Fikstür</b>
+      <p class="mut">Herkes herkesle iki maç yapar (ev/deplasman). Yeni oyuncu eklersen tekrar bas, sadece eksik maçları ekler.</p>
+      <button onclick="fikstur()">Fikstürü oluştur / güncelle</button>
+    </div>
+    <div class="card"><b>Oyuncular</b><div id="plist"></div></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+// ====== 1) BURAYA KENDİ FIREBASE AYARINI YAPIŞTIR ======
+const cfg = {
+  apiKey: "AIzaSyAECRoKo0GKxz8RbYUdhKZwUnSKG4MMGJQ",
+  authDomain: "fifasonuc-c3ebc.firebaseapp.com",
+  projectId: "fifasonuc-c3ebc",
+  storageBucket: "fifasonuc-c3ebc.firebasestorage.app",
+  messagingSenderId: "680418147917",
+  appId: "1:680418147917:web:eed97d55522070126a6604"
+};
+// ========================================================
+const ADMIN = "admin";               // admin kullanıcı adı
+const DOM = "@fifa.local";
+firebase.initializeApp(cfg);
+const auth = firebase.auth(), db = firebase.firestore();
+let players = [], matches = [], isAdmin = false;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nm = u => (players.find(p => p.username === u) || {name: u}).name;
+
+function giris(){
+  $('lerr').textContent = '';
+  auth.signInWithEmailAndPassword($('u').value.trim().toLowerCase() + DOM, $('p').value)
+    .catch(() => $('lerr').textContent = 'Kullanıcı adı veya şifre yanlış.');
+}
+
+let unsub = [];
+auth.onAuthStateChanged(user => {
+  unsub.forEach(f => f()); unsub = [];
+  $('login').classList.toggle('hide', !!user);
+  $('app').classList.toggle('hide', !user);
+  if(!user) return;
+  const un = user.email.replace(DOM, '');
+  isAdmin = un === ADMIN;
+  $('me').textContent = un;
+  $('adminTab').classList.toggle('hide', !isAdmin);
+  unsub.push(db.collection('players').onSnapshot(s => { players = s.docs.map(d => d.data()).sort((a,b)=>a.name.localeCompare(b.name,'tr')); render(); }));
+  unsub.push(db.collection('matches').onSnapshot(s => { matches = s.docs.map(d => ({id:d.id, ...d.data()})); render(); }));
+});
+
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  ['tab-tablo','tab-mac','tab-h2h','tab-admin'].forEach(t => $(t).classList.toggle('hide', t !== b.dataset.t));
+});
+
+function render(){ tablo(); fill(); maclar(); h2h(); admin(); }
+
+function tablo(){
+  const t = {};
+  players.forEach(p => t[p.username] = {u:p.username,o:0,g:0,b:0,m:0,ag:0,yg:0});
+  matches.filter(m => m.played && t[m.home] && t[m.away]).forEach(m => {
+    const h = t[m.home], a = t[m.away];
+    h.o++; a.o++; h.ag += m.hg; h.yg += m.ag; a.ag += m.ag; a.yg += m.hg;
+    if(m.hg > m.ag){h.g++; a.m++} else if(m.hg < m.ag){a.g++; h.m++} else {h.b++; a.b++}
+  });
+  const rows = Object.values(t).map(r => ({...r, av:r.ag-r.yg, pu:r.g*3+r.b}))
+    .sort((x,y) => y.pu-x.pu || y.av-x.av || y.ag-x.ag);
+  $('tab-tablo').innerHTML = rows.length ? '<table><tr><th>#</th><th class="n">Oyuncu</th><th>O</th><th>G</th><th>B</th><th>M</th><th>AV</th><th>P</th></tr>' +
+    rows.map((r,i) => `<tr class="${i==0&&r.o?'top':''}"><td>${i+1}</td><td class="n">${esc(nm(r.u))}</td><td>${r.o}</td><td>${r.g}</td><td>${r.b}</td><td>${r.m}</td><td>${r.av>0?'+':''}${r.av}</td><td class="p">${r.pu}</td></tr>`).join('') + '</table>'
+    : '<p class="mut">Henüz oyuncu yok. Admin olarak Yönetim sekmesinden ekle.</p>';
+}
+
+function fill(){
+  const opts = players.map(p => `<option value="${p.username}">${esc(p.name)}</option>`).join('');
+  const keep = id => { const v = $(id).value; return v; };
+  const f = keep('filtre'), a = keep('a'), b = keep('b');
+  $('filtre').innerHTML = '<option value="">Tüm maçlar</option><option value="_todo">Oynanmamışlar</option>' + opts;
+  $('a').innerHTML = opts; $('b').innerHTML = opts;
+  $('filtre').value = f; if(a) $('a').value = a;
+  if(b) $('b').value = b; else if(players[1]) $('b').value = players[1].username;
+}
+
+function maclar(){
+  const f = $('filtre').value;
+  let l = matches.filter(m => f === '' ? true : f === '_todo' ? !m.played : (m.home === f || m.away === f));
+  l.sort((x,y) => (x.played?1:0)-(y.played?1:0) || x.id.localeCompare(y.id));
+  $('maclist').innerHTML = l.length ? l.map(m => `<div class="m">
+    <div class="h">${esc(nm(m.home))}</div>
+    <input type="number" min="0" id="h_${m.id}" value="${m.played?m.hg:''}">
+    <div class="mut">-</div>
+    <input type="number" min="0" id="a_${m.id}" value="${m.played?m.ag:''}">
+    <div>${esc(nm(m.away))}</div>
+    <div class="act">${m.played?'<span class="mut">Girildi · '+esc(m.by||'')+'</span> ':''}<button onclick="kaydet('${m.id}')">Kaydet</button></div>
+  </div>`).join('') : '<p class="mut">Maç yok. Admin fikstürü oluşturmalı.</p>';
+}
+
+function kaydet(id){
+  const h = parseInt($('h_'+id).value), a = parseInt($('a_'+id).value);
+  if(isNaN(h) || isNaN(a) || h < 0 || a < 0) return alert('İki skoru da gir.');
+  db.collection('matches').doc(id).update({hg:h, ag:a, played:true, by:$('me').textContent}).catch(e => alert('Kaydedilemedi: '+e.message));
+}
+
+function h2h(){
+  const a = $('a').value, b = $('b').value;
+  if(!a || !b) return;
+  if(a === b){ $('h2hout').innerHTML = '<p class="mut">İki farklı oyuncu seç.</p>'; return; }
+  let wa = 0, wb = 0, d = 0, ga = 0, gb = 0, n = 0;
+  matches.filter(m => m.played && ((m.home===a&&m.away===b)||(m.home===b&&m.away===a))).forEach(m => {
+    const sa = m.home === a ? m.hg : m.ag, sb = m.home === a ? m.ag : m.hg;
+    n++; ga += sa; gb += sb;
+    if(sa > sb) wa++; else if(sa < sb) wb++; else d++;
+  });
+  $('h2hout').innerHTML = n ? `<div class="big">${wa} - ${wb}</div>
+    <p style="text-align:center">${esc(nm(a))} <b>${wa}</b> kez yendi, ${esc(nm(b))} <b>${wb}</b> kez yendi, ${d} beraberlik.<br>
+    <span class="mut">Toplam gol: ${ga} - ${gb} (${n} maç)</span></p>`
+    : '<p class="mut">Bu ikili henüz maç oynamadı.</p>';
+}
+
+function admin(){
+  if(!isAdmin) return;
+  $('plist').innerHTML = players.map(p => `<div class="row" style="justify-content:space-between;padding:5px 0">
+    <span>${esc(p.name)} <span class="mut">(${esc(p.username)})</span></span>
+    <button class="del" onclick="sil('${p.username}')">Sil</button></div>`).join('') || '<span class="mut">Boş</span>';
+}
+
+async function oyuncuEkle(){
+  const name = $('nn').value.trim(), u = $('nu').value.trim().toLowerCase(), pw = $('np').value;
+  $('aerr').textContent = '';
+  if(!name || !/^[a-z0-9_]+$/.test(u) || pw.length < 6) return $('aerr').textContent = 'İsim, kullanıcı adı (harf/rakam) ve 6+ karakter şifre gerekli.';
+  try{
+    // admin oturumu kapanmasın diye ikinci bir uygulama örneği kullanılıyor
+    const sec = firebase.apps.find(x => x.name === 'sec') || firebase.initializeApp(cfg, 'sec');
+    await sec.auth().createUserWithEmailAndPassword(u + DOM, pw);
+    await sec.auth().signOut();
+    await db.collection('players').doc(u).set({name, username:u});
+    $('nn').value = $('nu').value = $('np').value = '';
+  }catch(e){ $('aerr').textContent = 'Hata: ' + e.message; }
+}
+
+async function fikstur(){
+  const have = new Set(matches.map(m => m.id));
+  const batch = db.batch(); let c = 0;
+  players.forEach(a => players.forEach(b => {
+    if(a.username === b.username) return;
+    const id = a.username + '__' + b.username;
+    if(have.has(id)) return;
+    batch.set(db.collection('matches').doc(id), {home:a.username, away:b.username, played:false}); c++;
+  }));
+  if(!c) return alert('Eklenecek yeni maç yok.');
+  await batch.commit(); alert(c + ' maç eklendi.');
+}
+
+async function sil(u){
+  if(!confirm(nm(u) + ' ve maçları silinsin mi? (Giriş hesabını Firebase panelinden de silebilirsin.)')) return;
+  const batch = db.batch();
+  batch.delete(db.collection('players').doc(u));
+  matches.filter(m => m.home === u || m.away === u).forEach(m => batch.delete(db.collection('matches').doc(m.id)));
+  await batch.commit();
+}
+</script>
+</body>
+</html>
