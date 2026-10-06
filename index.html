@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FIFA Ligi</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b1511">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="FIFA Ligi">
 <style>
 :root{--bg:#0b1511;--card:#12211a;--line:#1f3a2d;--txt:#eef3ee;--mut:#86a091;--acc:#f2c14e;--ok:#5dd28a;--bad:#ef6a5e}
 *{box-sizing:border-box}
@@ -54,6 +60,8 @@ tr.top{background:linear-gradient(90deg,rgba(242,193,78,.12),transparent)}
 .kpi.wide{grid-column:1/-1}
 .bar{display:flex;height:10px;border-radius:6px;overflow:hidden;margin:8px 0;background:var(--line)}
 .bar .a{background:var(--ok)}.bar .d{background:var(--mut)}.bar .b{background:var(--acc)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,120px);background:var(--acc);color:#1a1400;font-weight:700;padding:12px 18px;border-radius:12px;transition:transform .3s;z-index:9;max-width:90%;text-align:center}
+#toast.on{transform:translate(-50%,0)}
 .hide{display:none}
 </style>
 </head>
@@ -119,6 +127,7 @@ tr.top{background:linear-gradient(90deg,rgba(242,193,78,.12),transparent)}
   </div>
 </div>
 
+<div id="toast"></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -133,6 +142,8 @@ const cfg = {
   appId: "1:680418147917:web:eed97d55522070126a6604"
 };
 // ========================================================
+const NTFY_TOPIC = "fifasonuc-c3ebc-maclar-k8q2x"; // istersen değiştir, arkadaşlar uygulamada aynı adı yazacak
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 const ADMIN = "admin";               // admin kullanıcı adı
 const DOM = "@fifa.local";
 firebase.initializeApp(cfg);
@@ -160,7 +171,12 @@ auth.onAuthStateChanged(user => {
   $('me').textContent = un;
   $('adminTab').classList.toggle('hide', !isAdmin);
   unsub.push(db.collection('players').onSnapshot(s => { players = s.docs.map(d => d.data()).sort((a,b)=>a.name.localeCompare(b.name,'tr')); render(); }));
-  unsub.push(db.collection('matches').onSnapshot(s => { matches = s.docs.map(d => ({id:d.id, ...d.data()})); render(); }));
+  let ilk = true;
+  unsub.push(db.collection('matches').onSnapshot(s => {
+    matches = s.docs.map(d => ({id:d.id, ...d.data()})); render();
+    if(!ilk) s.docChanges().filter(c => c.type === 'added' && !c.doc.metadata.hasPendingWrites).forEach(c => { const m = c.doc.data(); toast('⚽ ' + macYazi(m)); });
+    ilk = false;
+  }));
 });
 
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
@@ -261,14 +277,21 @@ function matchCard(m, del){
   </div>`;
 }
 
+const macYazi = m => `${nm(m.home)} ${m.hg}-${m.ag} ${nm(m.away)}`;
+function toast(t){ const e = $('toast'); e.textContent = t; e.classList.add('on'); setTimeout(() => e.classList.remove('on'), 5000); }
+function bildir(m){
+  fetch('https://ntfy.sh/', {method:'POST', body: JSON.stringify({topic:NTFY_TOPIC, title:'Yeni FIFA maçı ⚽', message: macYazi(m) + ' (ekleyen: ' + m.by + ')', tags:['soccer']})}).catch(() => {});
+}
+
 function macEkle(){
   const home = $('hm').value, away = $('aw').value;
   const hg = parseInt($('hg').value), ag = parseInt($('ag').value);
   if(!home || !away) return alert('Önce admin oyuncu eklemeli.');
   if(home === away) return alert('İki farklı oyuncu seç.');
   if(isNaN(hg) || isNaN(ag) || hg < 0 || ag < 0) return alert('İki skoru da gir.');
-  db.collection('matches').add({home, away, hg, ag, played:true, by:$('me').textContent, ts:Date.now()})
-    .then(() => { $('hg').value = $('ag').value = ''; })
+  const yeni = {home, away, hg, ag, played:true, by:$('me').textContent, ts:Date.now()};
+  db.collection('matches').add(yeni)
+    .then(() => { $('hg').value = $('ag').value = ''; bildir(yeni); })
     .catch(e => alert('Kaydedilemedi: ' + e.message));
 }
 
